@@ -1,13 +1,11 @@
 from __future__ import print_function
 import argparse
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 from plr_exercise.models.cnn import Net
-
 
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
@@ -54,7 +52,7 @@ def test(model, device, test_loader, epoch):
             test_loss, correct, len(test_loader.dataset), 100.0 * correct / len(test_loader.dataset)
         )
     )
-
+    
 
 def main():
     # Training settings
