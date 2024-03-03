@@ -1,0 +1,11 @@
+batch_size: 64
+test_batch_size: 1000
+epochs: 2
+lr: 1.0
+gamma: 0.7
+no_cuda: false
+dry_run: false
+seed: 1
+log_interval: 10
+save_model: false
+no-cuda: false

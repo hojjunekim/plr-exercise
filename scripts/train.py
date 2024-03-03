@@ -9,8 +9,11 @@ from plr_exercise.models.cnn import Net
 from plr_exercise import PLR_ROOT_DIR
 import wandb
 import optuna
-from functools import partial
 import os
+from omegaconf import DictConfig, OmegaConf
+import hydra
+# from hydra import initialize, initialize_config_module, compose
+
 
 
 def train(args, model, device, train_loader, optimizer, epoch):
@@ -33,7 +36,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
         loss = F.nll_loss(output, target)
         loss.backward()
         optimizer.step()
-        if batch_idx % args.log_interval == 0:
+        if batch_idx % args["log_interval"] == 0:
             print(
                 "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
                     epoch,
@@ -44,7 +47,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
                 )
             )
             wandb.log({"epoch": epoch, "train_loss": loss.item()})
-            if args.dry_run:
+            if args["dry_run"]:
                 break
 
 
@@ -118,33 +121,12 @@ def objective(trial, args, train_loader, test_loader):
     return accuracy
 
 
-def main():
+@hydra.main(config_path="../config/", config_name="config")
+def main(cfg: DictConfig):
     """
     Main function for training the model.
     """
-    # Training settings
-    parser = argparse.ArgumentParser(description="PyTorch MNIST Example")
-    parser.add_argument(
-        "--batch-size", type=int, default=64, metavar="N", help="input batch size for training (default: 64)"
-    )
-    parser.add_argument(
-        "--test-batch-size", type=int, default=1000, metavar="N", help="input batch size for testing (default: 1000)"
-    )
-    parser.add_argument("--epochs", type=int, default=2, metavar="N", help="number of epochs to train (default: 14)")
-    parser.add_argument("--lr", type=float, default=1.0, metavar="LR", help="learning rate (default: 1.0)")
-    parser.add_argument("--gamma", type=float, default=0.7, metavar="M", help="Learning rate step gamma (default: 0.7)")
-    parser.add_argument("--no-cuda", action="store_true", default=False, help="disables CUDA training")
-    parser.add_argument("--dry-run", action="store_true", default=False, help="quickly check a single pass")
-    parser.add_argument("--seed", type=int, default=1, metavar="S", help="random seed (default: 1)")
-    parser.add_argument(
-        "--log-interval",
-        type=int,
-        default=10,
-        metavar="N",
-        help="how many batches to wait before logging training status",
-    )
-    parser.add_argument("--save-model", action="store_true", default=False, help="For Saving the current Model")
-    args = parser.parse_args()
+    args = OmegaConf.to_container(cfg, resolve=True)
 
     wandb.login()
     os.makedirs(os.path.join(PLR_ROOT_DIR, "results"), exist_ok=True)
@@ -157,17 +139,17 @@ def main():
     include_fn = lambda path, root: path.endswith(".py") or path.endswith(".yaml")
     run.log_code(name="source_files", root=PLR_ROOT_DIR, include_fn=include_fn)
 
-    use_cuda = not args.no_cuda and torch.cuda.is_available()
+    use_cuda = not args["no_cuda"] and torch.cuda.is_available()
 
-    torch.manual_seed(args.seed)
+    torch.manual_seed(args["seed"])
 
     if use_cuda:
         device = torch.device("cuda")
     else:
         device = torch.device("cpu")
 
-    train_kwargs = {"batch_size": args.batch_size}
-    test_kwargs = {"batch_size": args.test_batch_size}
+    train_kwargs = {"batch_size": args["batch_size"]}
+    test_kwargs = {"batch_size": args["test_batch_size"]}
     if use_cuda:
         cuda_kwargs = {"num_workers": 1, "pin_memory": True, "shuffle": True}
         train_kwargs.update(cuda_kwargs)
@@ -197,13 +179,13 @@ def main():
     # Use best hyperparameters for final training
     model = Net().to(device)
     optimizer = optim.Adam(model.parameters(), lr=best_lr)
-    scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
+    scheduler = StepLR(optimizer, step_size=1, gamma=args["gamma"])
     for epoch in range(best_epochs):
         train(args, model, device, train_loader, optimizer, epoch)
         test(model, device, test_loader, epoch)
         scheduler.step()
 
-    if args.save_model:
+    if args["save_model"]:
         torch.save(model.state_dict(), "mnist_cnn.pt")
 
     wandb.finish()
