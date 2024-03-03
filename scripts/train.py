@@ -11,6 +11,7 @@ import optuna
 import os
 from omegaconf import DictConfig, OmegaConf
 import hydra
+import time
 
 
 def train(args, model, device, train_loader, optimizer, epoch):
@@ -26,6 +27,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
         epoch (int): The current epoch number.
     """
     model.train()
+    start_time = time.time()  # Start measuring time
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
@@ -46,6 +48,9 @@ def train(args, model, device, train_loader, optimizer, epoch):
             wandb.log({"epoch": epoch, "train_loss": loss.item()})
             if args["dry_run"]:
                 break
+    end_time = time.time()  # Stop measuring time
+    train_time = end_time - start_time
+    print("Train Time: {:.2f} seconds".format(train_time))
 
 
 def test(model, device, test_loader, epoch):
@@ -59,6 +64,7 @@ def test(model, device, test_loader, epoch):
         epoch (int): The current epoch number.
     """
     model.eval()
+    start_time = time.time()  # Start measuring time
     test_loss = 0
     correct = 0
 
@@ -71,6 +77,10 @@ def test(model, device, test_loader, epoch):
             correct += pred.eq(target.view_as(pred)).sum().item()
 
     test_loss /= len(test_loader.dataset)
+
+    end_time = time.time()  # Stop measuring time
+    test_time = end_time - start_time
+    print("Test Time: {:.2f} seconds".format(test_time))
 
     print(
         "\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n".format(
